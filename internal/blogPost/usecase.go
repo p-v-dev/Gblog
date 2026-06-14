@@ -6,101 +6,134 @@ import (
 	"errors"
 )
 
-// BlogPostUseCase agora expõe apenas DTOs para o mundo externo
-type BlogPostUseCase interface {
-	Create(ctx context.Context, input BlogPostInputDTO) error
-	GetBySlug(ctx context.Context, slug string) (*BlogPostOutputDTO, error)
-	FetchAll(ctx context.Context, limit, offset int) ([]BlogPostOutputDTO, error)
-	Update(ctx context.Context, id uint, input BlogPostInputDTO) error
-	Delete(ctx context.Context, id uint) error
+// ---------------------------------------------------------
+// DTOs (Data Transfer Objects)
+// ---------------------------------------------------------
+
+// ---------------------------------------------------------
+// CASO DE USO 1: Criar um Blog Post
+// ---------------------------------------------------------
+
+type CreatePostUseCase interface {
+	Execute(ctx context.Context, input CreatePostInputDTO) error
 }
 
-type blogPostUseCase struct {
+type createPostUseCase struct {
 	repo BlogPostRepository
 }
 
-func NewBlogPostUseCase(repo BlogPostRepository) BlogPostUseCase {
-	return &blogPostUseCase{repo: repo}
+func NewCreatePostUseCase(repo BlogPostRepository) CreatePostUseCase {
+	return &createPostUseCase{repo: repo}
 }
 
-// Create mapeia o Input DTO para a Entity antes de salvar
-func (uc *blogPostUseCase) Create(ctx context.Context, input BlogPostInputDTO) error {
-	statusConvertido := pkg.BlogStatus(input.Status)
+func (uc *createPostUseCase) Execute(ctx context.Context, input CreatePostInputDTO) error {
+	statusDefault := pkg.BlogStatus("draft")
 
-	// Valida se o status enviado é aceito pelo seu sistema
-	if !statusConvertido.IsValid() {
-		return errors.New("status inválido: escolha entre draft, published ou archived")
+	if input.Title == "" {
+		return errors.New("o título do post é obrigatório")
 	}
 
 	postEntity := &BlogPost{
 		Title:   input.Title,
 		Slug:    input.Slug,
 		Content: input.Content,
-		Status:  statusConvertido,
+		Status:  statusDefault,
 	}
 
 	return uc.repo.Create(ctx, postEntity)
 }
 
-// GetBySlug busca a Entity e mapeia para o Output DTO
-func (uc *blogPostUseCase) GetBySlug(ctx context.Context, slug string) (*BlogPostOutputDTO, error) {
-	post, err := uc.repo.GetBySlug(ctx, slug)
+// ---------------------------------------------------------
+// CASO DE USO 2: Publicar um Blog Post
+// ---------------------------------------------------------
+
+type PublishPostUseCase interface {
+	Execute(ctx context.Context, id uint) error // Voltamos para int
+}
+
+type publishPostUseCase struct {
+	repo BlogPostRepository
+}
+
+func NewPublishPostUseCase(repo BlogPostRepository) PublishPostUseCase {
+	return &publishPostUseCase{repo: repo}
+}
+
+func (uc *publishPostUseCase) Execute(ctx context.Context, id uint) error {
+	post, err := uc.repo.FindByID(ctx, id)
 	if err != nil {
-		return nil, err
+		return errors.New("post não encontrado")
 	}
 
-	return &BlogPostOutputDTO{
-		ID:        post.ID,
-		Title:     post.Title,
-		Slug:      post.Slug,
-		Content:   post.Content,
-		Status:    string(post.Status),
-		IsActive:  post.IsActive,
-		CreatedAt: post.CreatedAt,
-		UpdatedAt: post.UpdatedAt,
-	}, nil
+	if post.Status == "published" {
+		return errors.New("este post já está publicado")
+	}
+
+	if len(post.Content) < 10 {
+		return errors.New("conteúdo muito curto para ser publicado")
+	}
+
+	post.Status = pkg.BlogStatus("published")
+
+	return uc.repo.Update(ctx, post)
 }
 
-// FetchAll busca a lista de Entities e transforma em uma lista de Output DTOs
-func (uc *blogPostUseCase) FetchAll(ctx context.Context, limit, offset int) ([]BlogPostOutputDTO, error) {
-	posts, err := uc.repo.FetchAll(ctx, limit, offset)
+// ---------------------------------------------------------
+// CASO DE USO 3: Editar Blog Post
+// ---------------------------------------------------------
+
+type UpdatePostUseCase interface {
+	Execute(ctx context.Context, id uint, input UpdatePostInputDTO) error // Voltamos para int
+}
+
+type updatePostUseCase struct {
+	repo BlogPostRepository
+}
+
+func NewUpdatePostUseCase(repo BlogPostRepository) UpdatePostUseCase {
+	return &updatePostUseCase{repo: repo}
+}
+
+func (uc *updatePostUseCase) Execute(ctx context.Context, id uint, input UpdatePostInputDTO) error {
+	post, err := uc.repo.FindByID(ctx, id)
 	if err != nil {
-		return nil, err
+		return errors.New("post não encontrado")
 	}
 
-	dtos := make([]BlogPostOutputDTO, len(posts))
-	for i, post := range posts {
-		dtos[i] = BlogPostOutputDTO{
-			ID:        post.ID,
-			Title:     post.Title,
-			Slug:      post.Slug,
-			Content:   post.Content,
-			Status:    string(post.Status),
-			IsActive:  post.IsActive,
-			CreatedAt: post.CreatedAt,
-			UpdatedAt: post.UpdatedAt,
-		}
+	if !post.IsActive {
+		return errors.New("não é possível editar um post inativo/deletado")
 	}
 
-	return dtos, nil
+	post.Title = input.Title
+	post.Content = input.Content
+	post.Slug = input.Slug
+
+	return uc.repo.Update(ctx, post)
 }
 
-// Update recebe o ID e os novos dados, busca o registro atual e atualiza a Entity
-func (uc *blogPostUseCase) Update(ctx context.Context, id uint, input BlogPostInputDTO) error {
-	// Uma boa prática é verificar se o post existe antes de atualizar via ID
-	// Aqui assumimos uma atualização direta baseada no ID recebido
-	statusDoPacote := pkg.BlogStatus(input.Status)
-	postEntity := &BlogPost{
-		Title:   input.Title,
-		Slug:    input.Slug,
-		Content: input.Content,
-		Status:  statusDoPacote,
-	}
-	postEntity.ID = id // Injeta o ID vindo da rota/parâmetro na Entity do GORM
+// ---------------------------------------------------------
+// CASO DE USO 4: Deletar (Soft Delete)
+// ---------------------------------------------------------
 
-	return uc.repo.Update(ctx, postEntity)
+type DeletePostUseCase interface {
+	Execute(ctx context.Context, id uint) error // Voltamos para int
 }
 
-func (uc *blogPostUseCase) Delete(ctx context.Context, id uint) error {
-	return uc.repo.Delete(ctx, id)
+type deletePostUseCase struct {
+	repo BlogPostRepository
+}
+
+func NewDeletePostUseCase(repo BlogPostRepository) DeletePostUseCase {
+	return &deletePostUseCase{repo: repo}
+}
+
+func (uc *deletePostUseCase) Execute(ctx context.Context, id uint) error {
+	post, err := uc.repo.FindByID(ctx, id)
+	if err != nil {
+		return errors.New("post não encontrado")
+	}
+
+	post.IsActive = false
+
+	return uc.repo.Update(ctx, post)
 }

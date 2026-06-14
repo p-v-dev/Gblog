@@ -13,6 +13,7 @@ type BlogPostRepository interface {
 	FetchAll(ctx context.Context, limit, offset int) ([]BlogPost, error)
 	Update(ctx context.Context, post *BlogPost) error
 	Delete(ctx context.Context, id uint) error
+	FindByID(ctx context.Context, id uint) (*BlogPost, error)
 }
 
 // blogPostRepositoryORM é a implementação concreta usando o GORM
@@ -35,6 +36,15 @@ func (r *blogPostRepositoryORM) GetBySlug(ctx context.Context, slug string) (*Bl
 	var post BlogPost
 	// Adicionamos a condição is_active = true
 	err := r.db.WithContext(ctx).Where("slug = ? AND is_active = ?", slug, true).First(&post).Error
+	if err != nil {
+		return nil, err
+	}
+	return &post, nil
+}
+func (r *blogPostRepositoryORM) FindByID(ctx context.Context, id uint) (*BlogPost, error) {
+	var post BlogPost
+	// Adicionamos a condição is_active = true
+	err := r.db.WithContext(ctx).Where("id = ? AND is_active = ?", id, true).First(&post).Error
 	if err != nil {
 		return nil, err
 	}

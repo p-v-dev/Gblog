@@ -22,18 +22,16 @@ func main() {
 
 	// Instancia o repositório usando o pacote blogPost
 	postRepo := blogPost.NewBlogPostRepository(db)
-	postUseCase := blogPost.NewBlogPostUseCase(postRepo)
+	postUseCase := blogPost.NewCreatePostUseCase(postRepo)
 	ctx := context.Background()
 
-	// Exemplo de uso
-	novoPostDTO := blogPost.BlogPostInputDTO{
+	// E
+
+	err = postUseCase.Execute(ctx, blogPost.CreatePostInputDTO{
 		Title:   "Arquitetura Limpa em Go",
 		Slug:    "arquitetura-limpa-em-go",
 		Content: "Isolando suas entidades com DTOs e Interfaces!",
-		Status:  "draft", // Lembra que validamos no Use Case? Tem que ser draft, published ou archived
-	}
-
-	err = postUseCase.Create(ctx, novoPostDTO)
+	})
 	if err != nil {
 		log.Printf("Erro ao criar post pelo UseCase: %v", err)
 	} else {
