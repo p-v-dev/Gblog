@@ -1,7 +1,7 @@
 package blogPost
 
 import (
-	"Gblog/pkg"
+	"Gblog/pkg/blogstatus"
 	"context"
 	"errors"
 )
@@ -27,10 +27,13 @@ func NewCreatePostUseCase(repo BlogPostRepository) CreatePostUseCase {
 }
 
 func (uc *createPostUseCase) Execute(ctx context.Context, input CreatePostInputDTO) error {
-	statusDefault := pkg.BlogStatus("draft")
+	statusDefault := blogstatus.Draft
 
 	if input.Title == "" {
 		return errors.New("o título do post é obrigatório")
+	}
+	if input.UserID == "" {
+		return errors.New("o ID do usuário é obrigatório")
 	}
 
 	postEntity := &BlogPost{
@@ -38,6 +41,7 @@ func (uc *createPostUseCase) Execute(ctx context.Context, input CreatePostInputD
 		Slug:    input.Slug,
 		Content: input.Content,
 		Status:  statusDefault,
+		UserID:  input.UserID,
 	}
 
 	return uc.repo.Create(ctx, postEntity)
@@ -48,7 +52,7 @@ func (uc *createPostUseCase) Execute(ctx context.Context, input CreatePostInputD
 // ---------------------------------------------------------
 
 type PublishPostUseCase interface {
-	Execute(ctx context.Context, id uint) error // Voltamos para int
+	Execute(ctx context.Context, id string) error
 }
 
 type publishPostUseCase struct {
@@ -59,7 +63,7 @@ func NewPublishPostUseCase(repo BlogPostRepository) PublishPostUseCase {
 	return &publishPostUseCase{repo: repo}
 }
 
-func (uc *publishPostUseCase) Execute(ctx context.Context, id uint) error {
+func (uc *publishPostUseCase) Execute(ctx context.Context, id string) error {
 	post, err := uc.repo.FindByID(ctx, id)
 	if err != nil {
 		return errors.New("post não encontrado")
@@ -73,7 +77,7 @@ func (uc *publishPostUseCase) Execute(ctx context.Context, id uint) error {
 		return errors.New("conteúdo muito curto para ser publicado")
 	}
 
-	post.Status = pkg.BlogStatus("published")
+	post.Status = blogstatus.Published
 
 	return uc.repo.Update(ctx, post)
 }
@@ -83,7 +87,7 @@ func (uc *publishPostUseCase) Execute(ctx context.Context, id uint) error {
 // ---------------------------------------------------------
 
 type UpdatePostUseCase interface {
-	Execute(ctx context.Context, id uint, input UpdatePostInputDTO) error // Voltamos para int
+	Execute(ctx context.Context, id string, input UpdatePostInputDTO) error
 }
 
 type updatePostUseCase struct {
@@ -94,7 +98,7 @@ func NewUpdatePostUseCase(repo BlogPostRepository) UpdatePostUseCase {
 	return &updatePostUseCase{repo: repo}
 }
 
-func (uc *updatePostUseCase) Execute(ctx context.Context, id uint, input UpdatePostInputDTO) error {
+func (uc *updatePostUseCase) Execute(ctx context.Context, id string, input UpdatePostInputDTO) error {
 	post, err := uc.repo.FindByID(ctx, id)
 	if err != nil {
 		return errors.New("post não encontrado")
@@ -116,7 +120,7 @@ func (uc *updatePostUseCase) Execute(ctx context.Context, id uint, input UpdateP
 // ---------------------------------------------------------
 
 type DeletePostUseCase interface {
-	Execute(ctx context.Context, id uint) error // Voltamos para int
+	Execute(ctx context.Context, id string) error
 }
 
 type deletePostUseCase struct {
@@ -127,7 +131,7 @@ func NewDeletePostUseCase(repo BlogPostRepository) DeletePostUseCase {
 	return &deletePostUseCase{repo: repo}
 }
 
-func (uc *deletePostUseCase) Execute(ctx context.Context, id uint) error {
+func (uc *deletePostUseCase) Execute(ctx context.Context, id string) error {
 	post, err := uc.repo.FindByID(ctx, id)
 	if err != nil {
 		return errors.New("post não encontrado")

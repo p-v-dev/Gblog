@@ -1,9 +1,12 @@
 package user
 
 type CreateUserInput struct {
-	// Campos para criação
+	Name  string `json:"name"`
+	Email string `json:"email"`
 }
 
 type UserOutput struct {
-	ID uint64
+	ID    string `json:"id"`
+	Name  string `json:"name"`
+	Email string `json:"email"`
 }

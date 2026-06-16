@@ -1,4 +1,4 @@
-package pkg
+package blogstatus
 
 type BlogStatus string
 

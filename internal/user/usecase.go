@@ -1,20 +1,42 @@
 package user
 
-type Usecase interface {
-	Execute(input CreateUserInput) (*UserOutput, error)
+import (
+	"context"
+	"errors"
+)
+
+type CreateUserUseCase interface {
+	Execute(ctx context.Context, input CreateUserInput) (*UserOutput, error)
 }
 
-type usecase struct {
+type createUserUseCase struct {
 	repo Repository
 }
 
-func NewUsecase(repo Repository) Usecase {
-	return &usecase{
-		repo: repo,
-	}
+func NewCreateUserUseCase(repo Repository) CreateUserUseCase {
+	return &createUserUseCase{repo: repo}
 }
 
-func (u *usecase) Execute(input CreateUserInput) (*UserOutput, error) {
-	// Lógica de negócio aqui
-	return nil, nil
+func (uc *createUserUseCase) Execute(ctx context.Context, input CreateUserInput) (*UserOutput, error) {
+	if input.Name == "" {
+		return nil, errors.New("o nome é obrigatório")
+	}
+	if input.Email == "" {
+		return nil, errors.New("o email é obrigatório")
+	}
+
+	user := &User{
+		Name:  input.Name,
+		Email: input.Email,
+	}
+
+	if err := uc.repo.Create(ctx, user); err != nil {
+		return nil, err
+	}
+
+	return &UserOutput{
+		ID:    user.ID,
+		Name:  user.Name,
+		Email: user.Email,
+	}, nil
 }

@@ -2,8 +2,10 @@ package main
 
 import (
 	"Gblog/internal/blogPost" // <-- Puxa tanto a struct quanto o Repository
-	deliveryHttp "Gblog/internal/blogPost/http"
+	blogHttp "Gblog/internal/blogPost/http"
 	"Gblog/internal/infra"
+	"Gblog/internal/user"
+	userHttp "Gblog/internal/user/http"
 	"log"
 	"os"
 
@@ -39,12 +41,16 @@ func main() {
 	// ROTA DO SWAGGER: Configura a rota onde a interface gráfica do Swagger vai rodar
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
-	postHandler := deliveryHttp.NewBlogPostHandler(
+	postHandler := blogHttp.NewBlogPostHandler(
 		createUseCase,
 		publishUseCase,
 		updateUseCase,
 		deleteUseCase,
 	)
+
+	userRepo := user.NewUserRepository(db)
+	createUserUseCase := user.NewCreateUserUseCase(userRepo)
+	userHandler := userHttp.NewUserHandler(createUserUseCase)
 
 	api := r.Group("/api/v1")
 	{
@@ -52,6 +58,7 @@ func main() {
 		api.PUT("/posts/:id", postHandler.Update)            // Editar conteúdo
 		api.PATCH("/posts/:id/publish", postHandler.Publish) // Ação específica de publicar
 		api.DELETE("/posts/:id", postHandler.Delete)         // Soft Delete
+		api.POST("/users", userHandler.Create)               // Criar usuário
 	}
 
 	r.Run(":" + os.Getenv("API_PORT"))

@@ -3,7 +3,6 @@ package http
 import (
 	"Gblog/internal/blogPost"
 	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -62,20 +61,18 @@ func (h *BlogPostHandler) Create(c *gin.Context) {
 // @Tags         posts
 // @Accept       json
 // @Produce      json
-// @Param        id    path      uint               true  "ID do Post"
+// @Param        id    path      string               true  "ID do Post (UUID)"
 // @Success      200   {object}  map[string]string  "Post publicado com sucesso"
 // @Failure      400   {object}  map[string]string  "ID inválido ou erro na publicação"
 // @Router       /posts/{id}/publish [patch]
 func (h *BlogPostHandler) Publish(c *gin.Context) {
-	idStr := c.Param("id")
-
-	idInt, err := strconv.Atoi(idStr)
-	if err != nil || idInt <= 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "ID inválido, deve ser um número inteiro positivo"})
+	id := c.Param("id")
+	if id == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID inválido, deve ser um UUID válido"})
 		return
 	}
 
-	if err := h.publishUseCase.Execute(c.Request.Context(), uint(idInt)); err != nil {
+	if err := h.publishUseCase.Execute(c.Request.Context(), id); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -89,17 +86,15 @@ func (h *BlogPostHandler) Publish(c *gin.Context) {
 // @Tags         posts
 // @Accept       json
 // @Produce      json
-// @Param        id    path      uint                         true  "ID do Post"
+// @Param        id    path      string                       true  "ID do Post (UUID)"
 // @Param        post  body      blogPost.UpdatePostInputDTO  true  "Novos dados do Post"
 // @Success      200   {object}  map[string]string            "Post atualizado com sucesso"
 // @Failure      400   {object}  map[string]string            "ID ou JSON inválido"
 // @Router       /posts/{id} [put]
 func (h *BlogPostHandler) Update(c *gin.Context) {
-	idStr := c.Param("id")
-
-	idInt, err := strconv.Atoi(idStr)
-	if err != nil || idInt <= 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "ID inválido, deve ser um número inteiro positivo"})
+	id := c.Param("id")
+	if id == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID inválido, deve ser um UUID válido"})
 		return
 	}
 
@@ -109,7 +104,7 @@ func (h *BlogPostHandler) Update(c *gin.Context) {
 		return
 	}
 
-	if err := h.updateUseCase.Execute(c.Request.Context(), uint(idInt), input); err != nil {
+	if err := h.updateUseCase.Execute(c.Request.Context(), id, input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -123,20 +118,18 @@ func (h *BlogPostHandler) Update(c *gin.Context) {
 // @Tags         posts
 // @Accept       json
 // @Produce      json
-// @Param        id    path      uint               true  "ID do Post"
+// @Param        id    path      string               true  "ID do Post (UUID)"
 // @Success      200   {object}  map[string]string  "Post removido com sucesso"
 // @Failure      400   {object}  map[string]string  "ID inválido ou post não encontrado"
 // @Router       /posts/{id} [delete]
 func (h *BlogPostHandler) Delete(c *gin.Context) {
-	idStr := c.Param("id")
-
-	idInt, err := strconv.Atoi(idStr)
-	if err != nil || idInt <= 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "ID inválido, deve ser um número inteiro positivo"})
+	id := c.Param("id")
+	if id == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID inválido, deve ser um UUID válido"})
 		return
 	}
 
-	if err := h.deleteUseCase.Execute(c.Request.Context(), uint(idInt)); err != nil {
+	if err := h.deleteUseCase.Execute(c.Request.Context(), id); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}

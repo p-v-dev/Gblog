@@ -2,11 +2,8 @@ package infra
 
 import (
 	"Gblog/internal/blogPost"
+	"Gblog/internal/user"
 	"os"
-
-	"log"
-
-	"path/filepath"
 
 	"github.com/joho/godotenv"
 	"gorm.io/driver/postgres"
@@ -14,31 +11,8 @@ import (
 )
 
 func LoadEnv() {
-	// 1. Pega o diretório atual de execução
-	dir, err := os.Getwd()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// 2. Sobe as pastas até encontrar o arquivo go.mod (que define a raiz do projeto)
-	for {
-		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
-			break // Encontrou a raiz!
-		}
-
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			// Chegou no topo do sistema de arquivos e não achou a raiz
-			break
-		}
-		dir = parent
-	}
-
-	// 3. Carrega o .env a partir da raiz encontrada
-	envPath := filepath.Join(dir, ".env")
-
-	// Use Load se o .env for obrigatório, ou Overload se quiser sobrescrever variáveis do sistema
-	_ = godotenv.Load(envPath)
+	// ponytail: loads .env from CWD, go run is always from project root
+	_ = godotenv.Load()
 }
 
 func ConnectDB() (*gorm.DB, error) {
@@ -47,7 +21,7 @@ func ConnectDB() (*gorm.DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = db.AutoMigrate(&blogPost.BlogPost{}) // Certifique-se de importar o pacote onde está o BlogPost se necessário
+	err = db.AutoMigrate(&blogPost.BlogPost{}, &user.User{})
 	if err != nil {
 		return nil, err
 	}

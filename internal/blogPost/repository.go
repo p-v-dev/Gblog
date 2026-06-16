@@ -12,8 +12,7 @@ type BlogPostRepository interface {
 	GetBySlug(ctx context.Context, slug string) (*BlogPost, error)
 	FetchAll(ctx context.Context, limit, offset int) ([]BlogPost, error)
 	Update(ctx context.Context, post *BlogPost) error
-	Delete(ctx context.Context, id uint) error
-	FindByID(ctx context.Context, id uint) (*BlogPost, error)
+	FindByID(ctx context.Context, id string) (*BlogPost, error)
 }
 
 // blogPostRepositoryORM é a implementação concreta usando o GORM
@@ -41,7 +40,7 @@ func (r *blogPostRepositoryORM) GetBySlug(ctx context.Context, slug string) (*Bl
 	}
 	return &post, nil
 }
-func (r *blogPostRepositoryORM) FindByID(ctx context.Context, id uint) (*BlogPost, error) {
+func (r *blogPostRepositoryORM) FindByID(ctx context.Context, id string) (*BlogPost, error) {
 	var post BlogPost
 	// Adicionamos a condição is_active = true
 	err := r.db.WithContext(ctx).Where("id = ? AND is_active = ?", id, true).First(&post).Error
@@ -71,16 +70,4 @@ func (r *blogPostRepositoryORM) FetchAll(ctx context.Context, limit, offset int)
 // Update salva as alterações de um post existente
 func (r *blogPostRepositoryORM) Update(ctx context.Context, post *BlogPost) error {
 	return r.db.WithContext(ctx).Save(post).Error
-}
-
-// Delete remove um post
-func (r *blogPostRepositoryORM) Delete(ctx context.Context, id uint) error {
-	// 1. Atualiza o campo IsActive para false antes de deletar logicamente
-	err := r.db.WithContext(ctx).Model(&BlogPost{}).Where("id = ?", id).Update("is_active", false).Error
-	if err != nil {
-		return err
-	}
-
-	// 2. Executa o Soft Delete do GORM (preenche a coluna deleted_at)
-	return r.db.WithContext(ctx).Delete(&BlogPost{}, id).Error
 }
