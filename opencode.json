@@ -3,5 +3,6 @@
   "instructions": ["AGENTS.md"],
   "skills": {
     "paths": [".opencode/skills"]
-  }
+  },
+  "plugin": ["superpowers@git+https://github.com/obra/superpowers.git"]
 }

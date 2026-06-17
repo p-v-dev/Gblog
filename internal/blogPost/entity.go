@@ -1,6 +1,7 @@
 package blogPost
 
 import (
+	"Gblog/internal/tag"
 	"Gblog/pkg/blogstatus"
 	"crypto/rand"
 	"fmt"
@@ -20,6 +21,7 @@ type BlogPost struct {
 	Slug      string              `gorm:"type:varchar(255);uniqueIndex;not null"`
 	IsActive  bool                `gorm:"default:true;not null"`
 	UserID    string              `gorm:"type:uuid;not null;index"`
+	Tags      []tag.Tag           `gorm:"many2many:post_tags;"`
 }
 
 func (p *BlogPost) BeforeCreate(tx *gorm.DB) error {

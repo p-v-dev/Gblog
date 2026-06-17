@@ -15,6 +15,7 @@ type User struct {
 	DeletedAt gorm.DeletedAt `gorm:"index"`
 	Name      string         `gorm:"type:varchar(255);not null"`
 	Email     string         `gorm:"type:varchar(255);uniqueIndex;not null"`
+	Password  string         `gorm:"type:varchar(255);not null"`
 	IsActive  bool           `gorm:"default:true;not null"`
 }
 

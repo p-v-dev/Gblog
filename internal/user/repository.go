@@ -9,6 +9,7 @@ import (
 type Repository interface {
 	Create(ctx context.Context, user *User) error
 	FindByID(ctx context.Context, id string) (*User, error)
+	FindByEmail(ctx context.Context, email string) (*User, error)
 	FetchAll(ctx context.Context, limit, offset int) ([]User, error)
 	Update(ctx context.Context, user *User) error
 	Delete(ctx context.Context, id string) error
@@ -29,6 +30,15 @@ func (r *userRepositoryORM) Create(ctx context.Context, user *User) error {
 func (r *userRepositoryORM) FindByID(ctx context.Context, id string) (*User, error) {
 	var user User
 	err := r.db.WithContext(ctx).Where("id = ? AND is_active = ?", id, true).First(&user).Error
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+func (r *userRepositoryORM) FindByEmail(ctx context.Context, email string) (*User, error) {
+	var user User
+	err := r.db.WithContext(ctx).Where("email = ? AND is_active = ?", email, true).First(&user).Error
 	if err != nil {
 		return nil, err
 	}

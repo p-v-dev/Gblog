@@ -1,14 +1,62 @@
 package blogPost
 
 import (
+	"Gblog/internal/tag"
 	"Gblog/pkg/blogstatus"
+	"bytes"
 	"context"
 	"errors"
+	"regexp"
+	"strings"
+
+	"github.com/yuin/goldmark"
 )
+
+var slugRe = regexp.MustCompile(`[^a-z0-9]+`)
+
+func (uc *createPostUseCase) resolveTags(ctx context.Context, names []string) ([]tag.Tag, error) {
+	// ponytail: linear scan, fine for <100 tags per post
+	var tags []tag.Tag
+	for _, name := range names {
+		t, err := uc.tagRepo.FindByName(ctx, name)
+		if err != nil {
+			t = &tag.Tag{Name: name}
+			if err := uc.tagRepo.Create(ctx, t); err != nil {
+				return nil, err
+			}
+		}
+		tags = append(tags, *t)
+	}
+	return tags, nil
+}
+
+func (uc *updatePostUseCase) resolveTags(ctx context.Context, names []string) ([]tag.Tag, error) {
+	var tags []tag.Tag
+	for _, name := range names {
+		t, err := uc.tagRepo.FindByName(ctx, name)
+		if err != nil {
+			t = &tag.Tag{Name: name}
+			if err := uc.tagRepo.Create(ctx, t); err != nil {
+				return nil, err
+			}
+		}
+		tags = append(tags, *t)
+	}
+	return tags, nil
+}
+
+func slugify(s string) string {
+	return strings.Trim(slugRe.ReplaceAllString(strings.ToLower(s), "-"), "-")
+}
 
 // ---------------------------------------------------------
 // DTOs (Data Transfer Objects)
 // ---------------------------------------------------------
+
+// ponytail: minimal interface to decouple blogPost from user package
+type UserExistenceChecker interface {
+	UserExists(ctx context.Context, userID string) bool
+}
 
 // ---------------------------------------------------------
 // CASO DE USO 1: Criar um Blog Post
@@ -19,11 +67,13 @@ type CreatePostUseCase interface {
 }
 
 type createPostUseCase struct {
-	repo BlogPostRepository
+	repo      BlogPostRepository
+	userCheck UserExistenceChecker
+	tagRepo   tag.Repository
 }
 
-func NewCreatePostUseCase(repo BlogPostRepository) CreatePostUseCase {
-	return &createPostUseCase{repo: repo}
+func NewCreatePostUseCase(repo BlogPostRepository, userCheck UserExistenceChecker, tagRepo tag.Repository) CreatePostUseCase {
+	return &createPostUseCase{repo: repo, userCheck: userCheck, tagRepo: tagRepo}
 }
 
 func (uc *createPostUseCase) Execute(ctx context.Context, input CreatePostInputDTO) error {
@@ -36,12 +86,19 @@ func (uc *createPostUseCase) Execute(ctx context.Context, input CreatePostInputD
 		return errors.New("o ID do usuário é obrigatório")
 	}
 
+	if !uc.userCheck.UserExists(ctx, input.UserID) {
+		return errors.New("usuário informado não existe")
+	}
+
+	tags, _ := uc.resolveTags(ctx, input.Tags)
+
 	postEntity := &BlogPost{
 		Title:   input.Title,
-		Slug:    input.Slug,
+		Slug:    slugify(input.Title),
 		Content: input.Content,
 		Status:  statusDefault,
 		UserID:  input.UserID,
+		Tags:    tags,
 	}
 
 	return uc.repo.Create(ctx, postEntity)
@@ -87,18 +144,19 @@ func (uc *publishPostUseCase) Execute(ctx context.Context, id string) error {
 // ---------------------------------------------------------
 
 type UpdatePostUseCase interface {
-	Execute(ctx context.Context, id string, input UpdatePostInputDTO) error
+	Execute(ctx context.Context, id, userID string, input UpdatePostInputDTO) error
 }
 
 type updatePostUseCase struct {
-	repo BlogPostRepository
+	repo    BlogPostRepository
+	tagRepo tag.Repository
 }
 
-func NewUpdatePostUseCase(repo BlogPostRepository) UpdatePostUseCase {
-	return &updatePostUseCase{repo: repo}
+func NewUpdatePostUseCase(repo BlogPostRepository, tagRepo tag.Repository) UpdatePostUseCase {
+	return &updatePostUseCase{repo: repo, tagRepo: tagRepo}
 }
 
-func (uc *updatePostUseCase) Execute(ctx context.Context, id string, input UpdatePostInputDTO) error {
+func (uc *updatePostUseCase) Execute(ctx context.Context, id, userID string, input UpdatePostInputDTO) error {
 	post, err := uc.repo.FindByID(ctx, id)
 	if err != nil {
 		return errors.New("post não encontrado")
@@ -108,9 +166,18 @@ func (uc *updatePostUseCase) Execute(ctx context.Context, id string, input Updat
 		return errors.New("não é possível editar um post inativo/deletado")
 	}
 
+	if post.UserID != userID {
+		return errors.New("você não tem permissão para editar este post")
+	}
+
 	post.Title = input.Title
 	post.Content = input.Content
-	post.Slug = input.Slug
+	post.Slug = slugify(input.Title)
+
+	tags, _ := uc.resolveTags(ctx, input.Tags)
+	if input.Tags != nil {
+		post.Tags = tags
+	}
 
 	return uc.repo.Update(ctx, post)
 }
@@ -120,7 +187,7 @@ func (uc *updatePostUseCase) Execute(ctx context.Context, id string, input Updat
 // ---------------------------------------------------------
 
 type DeletePostUseCase interface {
-	Execute(ctx context.Context, id string) error
+	Execute(ctx context.Context, id, userID string) error
 }
 
 type deletePostUseCase struct {
@@ -131,13 +198,85 @@ func NewDeletePostUseCase(repo BlogPostRepository) DeletePostUseCase {
 	return &deletePostUseCase{repo: repo}
 }
 
-func (uc *deletePostUseCase) Execute(ctx context.Context, id string) error {
+func (uc *deletePostUseCase) Execute(ctx context.Context, id, userID string) error {
 	post, err := uc.repo.FindByID(ctx, id)
 	if err != nil {
 		return errors.New("post não encontrado")
 	}
 
+	if post.UserID != userID {
+		return errors.New("você não tem permissão para deletar este post")
+	}
+
 	post.IsActive = false
 
 	return uc.repo.Update(ctx, post)
+}
+
+func toPostOutput(p *BlogPost) PostOutput {
+	tags := make([]tag.TagOutput, len(p.Tags))
+	for i := range p.Tags {
+		tags[i] = tag.TagOutput{ID: p.Tags[i].ID, Name: p.Tags[i].Name}
+	}
+	var buf bytes.Buffer
+	if err := goldmark.Convert([]byte(p.Content), &buf); err != nil {
+		buf.WriteString(p.Content)
+	}
+	return PostOutput{
+		ID:          p.ID,
+		Title:       p.Title,
+		Content:     p.Content,
+		ContentHTML: buf.String(),
+		Status:      string(p.Status),
+		Slug:        p.Slug,
+		UserID:      p.UserID,
+		Tags:        tags,
+		CreatedAt:   p.CreatedAt,
+		UpdatedAt:   p.UpdatedAt,
+	}
+}
+
+type GetPostsUseCase interface {
+	Execute(ctx context.Context, limit, offset int) ([]PostOutput, error)
+}
+
+type getPostsUseCase struct {
+	repo BlogPostRepository
+}
+
+func NewGetPostsUseCase(repo BlogPostRepository) GetPostsUseCase {
+	return &getPostsUseCase{repo: repo}
+}
+
+func (uc *getPostsUseCase) Execute(ctx context.Context, limit, offset int) ([]PostOutput, error) {
+	posts, err := uc.repo.FetchAll(ctx, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]PostOutput, len(posts))
+	for i := range posts {
+		out[i] = toPostOutput(&posts[i])
+	}
+	return out, nil
+}
+
+type GetPostBySlugUseCase interface {
+	Execute(ctx context.Context, slug string) (*PostOutput, error)
+}
+
+type getPostBySlugUseCase struct {
+	repo BlogPostRepository
+}
+
+func NewGetPostBySlugUseCase(repo BlogPostRepository) GetPostBySlugUseCase {
+	return &getPostBySlugUseCase{repo: repo}
+}
+
+func (uc *getPostBySlugUseCase) Execute(ctx context.Context, slug string) (*PostOutput, error) {
+	post, err := uc.repo.GetBySlug(ctx, slug)
+	if err != nil {
+		return nil, err
+	}
+	out := toPostOutput(post)
+	return &out, nil
 }

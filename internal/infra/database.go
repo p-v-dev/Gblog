@@ -2,6 +2,8 @@ package infra
 
 import (
 	"Gblog/internal/blogPost"
+	"Gblog/internal/comment"
+	"Gblog/internal/tag"
 	"Gblog/internal/user"
 	"os"
 
@@ -21,7 +23,7 @@ func ConnectDB() (*gorm.DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = db.AutoMigrate(&blogPost.BlogPost{}, &user.User{})
+	err = db.AutoMigrate(&blogPost.BlogPost{}, &user.User{}, &tag.Tag{}, &comment.Comment{})
 	if err != nil {
 		return nil, err
 	}
