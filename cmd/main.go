@@ -132,7 +132,7 @@ func main() {
 		api.POST("/auth/token", auth.Login)                   // Gerar token
 
 		api.GET("/posts", postHandler.GetPosts)               // Listar posts
-		api.GET("/posts/:slug", postHandler.GetPostBySlug)    // Ver post por slug
+		api.GET("/posts/slug/:slug", postHandler.GetPostBySlug)    // Ver post por slug
 		api.GET("/posts/:id/comments", commentHandler.List)   // Listar comentários
 
 		protected := api.Group("")

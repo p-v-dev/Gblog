@@ -204,7 +204,7 @@ func (h *BlogPostHandler) GetPosts(c *gin.Context) {
 // @Param        slug  path  string  true  "Slug do post"
 // @Success      200  {object}  blogPost.PostOutput
 // @Failure      404  {object}  map[string]string
-// @Router       /posts/{slug} [get]
+// @Router       /posts/slug/{slug} [get]
 func (h *BlogPostHandler) GetPostBySlug(c *gin.Context) {
 	slug := c.Param("slug")
 	if slug == "" {
