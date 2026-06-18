@@ -35,5 +35,5 @@ After this the API is consumable as a real blog.
 
 ## Phase 5 — Infrastructure
 - [x] Docker (Dockerfile + docker-compose com api e postgres)
+- [x] CI/CD (GitHub Actions + deploy Render)
 - [ ] Nginx reverse proxy
-- [ ] CI/CD (GitHub Actions)
