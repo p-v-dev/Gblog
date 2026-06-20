@@ -14,6 +14,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	// IMPORTANTE: Importa os documentos que serão gerados pelo comando 'swag init'
@@ -104,6 +106,10 @@ func main() {
 	// ROTA DO SWAGGER: Configura a rota onde a interface gráfica do Swagger vai rodar
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
+	r.GET("/health", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	})
+
 	postHandler := blogHttp.NewBlogPostHandler(
 		createUseCase,
 		publishUseCase,
@@ -122,6 +128,11 @@ func main() {
 
 	if os.Getenv("JWT_SECRET") == "" {
 		log.Fatal("JWT_SECRET não configurado")
+	}
+
+	apiPort := os.Getenv("API_PORT")
+	if apiPort == "" {
+		log.Fatal("API_PORT não configurada")
 	}
 
 	auth := &authHandler{loginUseCase: loginUseCase}
@@ -163,6 +174,34 @@ func main() {
 		api.POST("/users", userHandler.Create) // Criar usuário
 	}
 
-	r.Run(":" + os.Getenv("API_PORT"))
+	sqlDB, err := db.DB()
+	if err != nil {
+		log.Fatalf("Erro ao obter conexão SQL: %v", err)
+	}
+
+	srv := &http.Server{
+		Addr:    ":" + apiPort,
+		Handler: r,
+	}
+
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("Erro ao iniciar servidor: %v", err)
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGTERM, syscall.SIGINT)
+	<-quit
+	log.Println("Desligando servidor...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Printf("Erro ao desligar servidor: %v", err)
+	}
+
+	sqlDB.Close()
 
 }
