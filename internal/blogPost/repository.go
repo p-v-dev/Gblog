@@ -27,7 +27,18 @@ func NewBlogPostRepository(db *gorm.DB) BlogPostRepository {
 
 // Create insere um novo post no banco de dados
 func (r *blogPostRepositoryORM) Create(ctx context.Context, post *BlogPost) error {
-	return r.db.WithContext(ctx).Create(post).Error
+	if err := r.db.WithContext(ctx).Omit("Tags").Create(post).Error; err != nil {
+		return err
+	}
+	for _, tag := range post.Tags {
+		if err := r.db.WithContext(ctx).Exec(
+			"INSERT INTO post_tags (blog_post_id, tag_id) VALUES (?, ?)",
+			post.ID, tag.ID,
+		).Error; err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // GetBySlug busca um post específico pela URL amigável (slug)

@@ -6,8 +6,10 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/yuin/goldmark"
 )
@@ -63,7 +65,7 @@ type UserExistenceChecker interface {
 // ---------------------------------------------------------
 
 type CreatePostUseCase interface {
-	Execute(ctx context.Context, input CreatePostInputDTO) error
+	Execute(ctx context.Context, input CreatePostInputDTO) (*BlogPost, error)
 }
 
 type createPostUseCase struct {
@@ -76,32 +78,35 @@ func NewCreatePostUseCase(repo BlogPostRepository, userCheck UserExistenceChecke
 	return &createPostUseCase{repo: repo, userCheck: userCheck, tagRepo: tagRepo}
 }
 
-func (uc *createPostUseCase) Execute(ctx context.Context, input CreatePostInputDTO) error {
+func (uc *createPostUseCase) Execute(ctx context.Context, input CreatePostInputDTO) (*BlogPost, error) {
 	statusDefault := blogstatus.Draft
 
 	if input.Title == "" {
-		return errors.New("o título do post é obrigatório")
+		return nil, errors.New("o título do post é obrigatório")
 	}
 	if input.UserID == "" {
-		return errors.New("o ID do usuário é obrigatório")
+		return nil, errors.New("o ID do usuário é obrigatório")
 	}
 
 	if !uc.userCheck.UserExists(ctx, input.UserID) {
-		return errors.New("usuário informado não existe")
+		return nil, errors.New("usuário informado não existe")
 	}
 
 	tags, _ := uc.resolveTags(ctx, input.Tags)
 
 	postEntity := &BlogPost{
 		Title:   input.Title,
-		Slug:    slugify(input.Title),
+		Slug:    fmt.Sprintf("%s-%d", slugify(input.Title), time.Now().UnixMilli()),
 		Content: input.Content,
 		Status:  statusDefault,
 		UserID:  input.UserID,
 		Tags:    tags,
 	}
 
-	return uc.repo.Create(ctx, postEntity)
+	if err := uc.repo.Create(ctx, postEntity); err != nil {
+		return nil, err
+	}
+	return postEntity, nil
 }
 
 // ---------------------------------------------------------

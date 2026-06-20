@@ -54,12 +54,13 @@ func (h *BlogPostHandler) Create(c *gin.Context) {
 		return
 	}
 
-	if err := h.createUseCase.Execute(c.Request.Context(), input); err != nil {
+	post, err := h.createUseCase.Execute(c.Request.Context(), input)
+	if err != nil {
 		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"message": "Post criado com sucesso como rascunho!"})
+	c.JSON(http.StatusCreated, post)
 }
 
 // Publish godoc

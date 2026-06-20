@@ -2,7 +2,7 @@
 
 ## Estado atual
 
-Fases 1–4 em andamento, Phase 4 parcial (rich content pendente). API funcional com auth JWT, posts, tags, comentários.
+API funcional com auth JWT, posts (draft → publish), tags (many2many), comentários, users. Fases 1–4 completas (exceto upload de imagens). Docker configurado.
 
 ## Rotas (`/api/v1`)
 
@@ -11,7 +11,7 @@ Fases 1–4 em andamento, Phase 4 parcial (rich content pendente). API funcional
 |--------|------|-----------|
 | POST | `/auth/token` | Login (email + senha) → JWT |
 | GET | `/posts` | Listar posts (`?limit=&offset=`) |
-| GET | `/posts/:slug` | Buscar post por slug |
+| GET | `/posts/slug/:slug` | Buscar post por slug |
 | GET | `/posts/:id/comments` | Listar comentários do post |
 | GET | `/tags` | Listar tags |
 | GET | `/users/:id` | Ver usuário |
@@ -34,10 +34,10 @@ Fases 1–4 em andamento, Phase 4 parcial (rich content pendente). API funcional
 
 ```
 internal/
-├── blogPost/     — Posts, tags (many2many via post_tags)
+├── blogPost/     — Posts CRUD + publish, tags many2many
 ├── comment/      — Comentários por post
-├── user/         — Usuários, login com bcrypt
-├── tag/          — Tags (find-or-create por nome)
+├── user/         — Usuários, login com bcrypt + JWT
+├── tag/          — Tags (find-or-create por nome, unique)
 └── infra/        — DB, JWT, auth middleware
 ```
 
@@ -47,7 +47,9 @@ internal/
 - `golang.org/x/crypto/bcrypt` — hash de senha
 - `gorm.io/gorm` — ORM
 - `github.com/gin-gonic/gin` — HTTP framework
+- `github.com/gin-contrib/cors` — CORS middleware
 - `github.com/swaggo/swag` — Swagger docs
+- `github.com/yuin/goldmark` — Markdown → HTML
 
 ## Padrões importantes
 
@@ -55,14 +57,16 @@ internal/
 - **Auth**: `POST /auth/token` com `{"email","password"}` → token. Requer `JWT_SECRET` no `.env`
 - **Tags**: find-or-create por nome. `POST /posts` aceita `{"tags":["golang"]}`, `PUT /posts/:id` também
 - **Soft delete**: `IsActive = false` em posts e comments, `DeletedAt` do GORM
+- **CORS**: configurado com `AllowOrigins: *`, permite header `Authorization` para rotas protegidas
+- **Slug**: gerado automaticamente do título com sufixo timestamp (`meu-titulo-1718765432100`) para evitar colisão
+- **Create response**: retorna o post criado (com ID e slug populados) em vez de mensagem fixa
 
 ## Pendente
 
 Ver `FUTURE.md`:
-- Rich content (markdown, images) — Phase 4
-- Swagger annotations nos endpoints de comment
-- Validar post existe antes de comentar
-- Docker, Nginx, CI/CD — Phase 5
+- Upload de imagens — Phase 4
+- CI/CD (GitHub Actions)
+- Nginx reverse proxy — Phase 5
 
 ## Comandos
 
@@ -70,9 +74,11 @@ Ver `FUTURE.md`:
 go run cmd/main.go                    # Rodar
 swag init -g cmd/main.go              # Gerar Swagger
 scarf mod -n <name>                   # Scaffold novo módulo
+docker compose up                     # Rodar com Docker
 ```
 
 ## Notas
 
 - `POST /tags` foi movido pra rota protegida — se precisar público, mover de volta
 - `currentUserID()` duplicado entre `blogPost/http/handlers.go` e `comment/http/handlers.go` — extrair pra infra se incomodar
+- `.env` requer `JWT_SECRET` além das vars de DB — o servidor falha no startup se não estiver setado

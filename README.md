@@ -1,61 +1,18 @@
 # Gblog API
 
-API REST para gerenciamento de artigos de um blog, construída com **Go**, **Gin**, **GORM** e **PostgreSQL**, seguindo os princípios de **Clean Architecture**.
+API REST para gerenciamento de artigos de um blog, construída com **Go**, **Gin**, **GORM** e **PostgreSQL**, seguindo **Clean Architecture**.
 
 ---
 
-## 📋 Índice
+## Funcionalidades
 
-- [Visão Geral](#visão-geral)
-- [Arquitetura](#arquitetura)
-- [Estrutura do Projeto](#estrutura-do-projeto)
-- [Tecnologias](#tecnologias)
-- [Pré-requisitos](#pré-requisitos)
-- [Instalação](#instalação)
-- [Variáveis de Ambiente](#variáveis-de-ambiente)
-- [Execução](#execução)
-- [Endpoints da API](#endpoints-da-api)
-- [Modelos de Dados](#modelos-de-dados)
-- [Regras de Negócio](#regras-de-negócio)
-- [Documentação Swagger](#documentação-swagger)
-
----
-
-## Visão Geral
-
-O **Gblog** é uma API para criação, edição, publicação e exclusão de posts de blog. O sistema implementa um fluxo completo de ciclo de vida dos posts, desde a criação como rascunho até a publicação ou exclusão lógica.
-
-### Funcionalidades
-
-- **Criar posts** como rascunho
-- **Editar** título, slug e conteúdo
-- **Publicar** posts com validação de regras de negócio
-- **Exclusão lógica** (soft delete) de posts
-- **Documentação Swagger** automática
-
----
-
-## Arquitetura
-
-O projeto segue os princípios de **Clean Architecture**, separando responsabilidades em camadas distintas:
-
-```
-┌─────────────────────────────────────────────┐
-│              HTTP Handlers (Delivery)        │
-│         Camada de apresentação / API         │
-├─────────────────────────────────────────────┤
-│              Use Cases (Business)            │
-│           Lógica de negócio                  │
-├─────────────────────────────────────────────┤
-│              Repository (Data)               │
-│          Acesso a dados (GORM/PostgreSQL)    │
-└─────────────────────────────────────────────┘
-```
-
-- **Entities**: Definem as regras de negócio e estruturas de dados
-- **Use Cases**: Orquestram as operações de negócio
-- **Repositories**: Abstraem o acesso ao banco de dados
-- **Handlers**: Expõem a API HTTP
+- **Posts**: criar (draft), editar, publicar, deletar (soft delete)
+- **Tags**: many2many com posts, find-or-create por nome
+- **Comentários**: criar, listar, deletar por post
+- **Usuários**: criar, login (bcrypt + JWT), atualizar, desativar
+- **Auth**: JWT Bearer token em rotas protegidas
+- **Markdown**: renderizado server-side via goldmark
+- **Swagger**: documentação automática dos endpoints
 
 ---
 
@@ -64,29 +21,41 @@ O projeto segue os princípios de **Clean Architecture**, separando responsabili
 ```
 Gblog/
 ├── cmd/
-│   ├── docs/                    # Documentação Swagger gerada
-│   └── main.go                  # Ponto de entrada da aplicação
+│   ├── main.go                  # Entry point: env, DB, use cases, rotas, CORS
+│   └── docs/                    # Swagger docs (gerado por swag init)
 ├── internal/
-│   ├── blogPost/
-│   │   ├── entity.go            # Entidade BlogPost
-│   │   ├── dto.go               # Data Transfer Objects
-│   │   ├── repository.go        # Interface e implementação do repositório
-│   │   ├── usecase.go           # Casos de uso (Create, Publish, Update, Delete)
-│   │   └── http/
-│   │       └── handlers.go      # Handlers HTTP (rotas)
-│   ├── infra/
-│   │   └── database.go          # Conexão com banco e configuração
-│   └── user/
-│       ├── entity.go            # Entidade User (em desenvolvimento)
-│       ├── dto.go               # DTOs do usuário
-│       ├── repository.go        # Repositório do usuário
-│       └── usecase.go           # Caso de uso do usuário
+│   ├── blogPost/                # Posts + tags many2many
+│   │   ├── entity.go
+│   │   ├── dto.go
+│   │   ├── repository.go
+│   │   ├── usecase.go
+│   │   └── http/handlers.go
+│   ├── comment/                 # Comentários
+│   │   ├── entity.go
+│   │   ├── dto.go
+│   │   ├── repository.go
+│   │   ├── usecase.go
+│   │   └── http/handlers.go
+│   ├── user/                    # Usuários + auth
+│   │   ├── entity.go
+│   │   ├── dto.go
+│   │   ├── repository.go
+│   │   ├── usecase.go
+│   │   └── http/handlers.go
+│   ├── tag/                     # Tags
+│   │   ├── entity.go
+│   │   ├── dto.go
+│   │   ├── repository.go
+│   │   └── usecase.go
+│   └── infra/
+│       └── database.go          # DB, JWT, auth middleware
 ├── pkg/
-│   └── blogStatus.go            # Enum de status do blog
-├── .env                         # Variáveis de ambiente (não versionado)
-├── .gitignore                   # Arquivos ignorados pelo Git
-├── go.mod                       # Dependências do módulo Go
-└── go.sum                       # Sumário de dependências
+│   └── blogstatus.go            # Enum: draft, published, archived
+├── Dockerfile
+├── docker-compose.yml
+├── .env                         # (não versionado)
+├── go.mod
+└── go.sum
 ```
 
 ---
@@ -95,80 +64,51 @@ Gblog/
 
 | Tecnologia | Versão | Descrição |
 |------------|--------|-----------|
-| Go | 1.26.3 | Linguagem de programação |
-| Gin | v1.12.0 | Framework HTTP |
-| GORM | v1.31.1 | ORM para Go |
-| PostgreSQL | - | Banco de dados relacional |
-| Swag | v1.16.6 | Geração de documentação Swagger |
+| Go | 1.26.3 | Linguagem |
+| Gin | v1.12.0 | HTTP framework |
+| GORM | v1.31.1 | ORM |
+| PostgreSQL | — | Banco de dados |
+| Swag | v1.16.6 | Swagger docs |
+| goldmark | — | Markdown → HTML |
+| golang-jwt | v5 | JWT HS256 |
+| gin-contrib/cors | — | CORS middleware |
 
 ---
 
 ## Pré-requisitos
 
-- [Go](https://go.dev/dl/) 1.26.3 ou superior
-- [PostgreSQL](https://www.postgresql.org/) instalado e configurado
-- [Swag CLI](https://github.com/swaggo/swag) (para gerar documentação)
-
----
-
-## Instalação
-
-1. **Clone o repositório:**
-
-   ```bash
-   git clone https://github.com/seu-usuario/Gblog.git
-   cd Gblog
-   ```
-
-2. **Instale as dependências:**
-
-   ```bash
-   go mod download
-   ```
-
-3. **Crie o arquivo `.env` na raiz do projeto:**
-
-   ```bash
-   cp .env.example .env
-   ```
-
-4. **Configure as variáveis de ambiente** (veja seção [Variáveis de Ambiente](#variáveis-de-ambiente)).
-
-5. **Gere a documentação Swagger:**
-
-   ```bash
-   swag init -g cmd/main.go
-   ```
+- [Go](https://go.dev/dl/) 1.26.3+
+- [PostgreSQL](https://www.postgresql.org/)
+- [Swag CLI](https://github.com/swaggo/swag) (opcional, para gerar docs)
+- [Docker](https://www.docker.com/) (opcional)
 
 ---
 
 ## Variáveis de Ambiente
 
-Crie um arquivo `.env` na raiz do projeto com as seguintes variáveis:
-
 | Variável | Descrição | Exemplo |
 |----------|-----------|---------|
-| `API_PORT` | Porta do servidor HTTP | `8080` |
+| `API_PORT` | Porta do servidor | `8080` |
 | `DB_HOST` | Host do PostgreSQL | `localhost` |
 | `DB_USER` | Usuário do banco | `postgres` |
 | `DB_PASSWORD` | Senha do banco | `senha123` |
-| `DB_NAME` | Nome do banco de dados | `gblog` |
+| `DB_NAME` | Nome do banco | `gblog` |
 | `DB_PORT` | Porta do PostgreSQL | `5432` |
+| `JWT_SECRET` | Chave secreta JWT | `minha-chave-super-secreta` |
 
 ---
 
 ## Execução
 
 ```bash
-# Executar a aplicação
+# Local
 go run cmd/main.go
 
-# Ou compilar e executar
-go build -o gblog cmd/main.go
-./gblog
+# Docker
+docker compose up
 ```
 
-A API estará disponível em: `http://localhost:{API_PORT}`
+A API estará em `http://localhost:{API_PORT}`. Docs Swagger em `/swagger/index.html`.
 
 ---
 
@@ -176,60 +116,29 @@ A API estará disponível em: `http://localhost:{API_PORT}`
 
 Base URL: `/api/v1`
 
-| Método | Endpoint | Descrição |
-|--------|----------|-----------|
-| `POST` | `/posts` | Criar um novo post (rascunho) |
-| `PUT` | `/posts/:id` | Atualizar título, slug e conteúdo |
-| `PATCH` | `/posts/:id/publish` | Publicar um post |
-| `DELETE` | `/posts/:id` | Excluir um post (soft delete) |
+### Públicos
+| Método | Rota | Descrição |
+|--------|------|-----------|
+| POST | `/auth/token` | Login → JWT |
+| GET | `/posts` | Listar posts (`?limit=&offset=`) |
+| GET | `/posts/slug/:slug` | Buscar post por slug |
+| GET | `/posts/:id/comments` | Listar comentários |
+| GET | `/tags` | Listar tags |
+| GET | `/users/:id` | Ver usuário |
+| POST | `/users` | Criar usuário |
 
-### Detalhes dos Endpoints
-
-#### Criar Post
-
-```http
-POST /api/v1/posts
-Content-Type: application/json
-
-{
-  "title": "Meu Primeiro Post",
-  "slug": "meu-primeiro-post",
-  "content": "Conteúdo do post aqui..."
-}
-```
-
-**Resposta:** `201 Created`
-
-#### Publicar Post
-
-```http
-PATCH /api/v1/posts/{id}/publish
-```
-
-**Resposta:** `200 OK`
-
-#### Atualizar Post
-
-```http
-PUT /api/v1/posts/{id}
-Content-Type: application/json
-
-{
-  "title": "Título Atualizado",
-  "slug": "titulo-atualizado",
-  "content": "Conteúdo atualizado..."
-}
-```
-
-**Resposta:** `200 OK`
-
-#### Excluir Post
-
-```http
-DELETE /api/v1/posts/{id}
-```
-
-**Resposta:** `200 OK`
+### Protegidos (Bearer token)
+| Método | Rota | Descrição |
+|--------|------|-----------|
+| POST | `/posts` | Criar rascunho |
+| PUT | `/posts/:id` | Editar post |
+| PATCH | `/posts/:id/publish` | Publicar |
+| DELETE | `/posts/:id` | Soft delete |
+| POST | `/posts/:id/comments` | Comentar |
+| DELETE | `/comments/:id` | Deletar comentário |
+| POST | `/tags` | Criar tag |
+| PUT | `/users/:id` | Atualizar perfil |
+| DELETE | `/users/:id` | Desativar conta |
 
 ---
 
@@ -239,64 +148,73 @@ DELETE /api/v1/posts/{id}
 
 | Campo | Tipo | Descrição |
 |-------|------|-----------|
-| `ID` | `uint` | Identificador único (auto-incremento) |
-| `Title` | `string` | Título do post (até 255 caracteres) |
-| `Content` | `string` | Conteúdo do post (texto longo) |
-| `Status` | `BlogStatus` | Status do post: `draft`, `published`, `archived` |
-| `Slug` | `string` | URL amigável (única) |
-| `IsActive` | `bool` | Indica se o post está ativo (soft delete) |
-| `CreatedAt` | `time.Time` | Data de criação |
-| `UpdatedAt` | `time.Time` | Data da última atualização |
-| `DeletedAt` | `time.Time` | Data da exclusão lógica |
+| `ID` | `uuid` | Chave primária |
+| `Title` | `string` | Título (255 max) |
+| `Content` | `text` | Markdown |
+| `Status` | `BlogStatus` | `draft`, `published`, `archived` |
+| `Slug` | `string` | URL única (com timestamp) |
+| `IsActive` | `bool` | Soft delete |
+| `UserID` | `uuid` | Autor |
+| `Tags` | `[]Tag` | Many2many via `post_tags` |
+| `CreatedAt` | `time` | |
+| `UpdatedAt` | `time` | |
+| `DeletedAt` | `time` | |
 
-### Status do Post
+### User
 
-| Status | Descrição |
-|--------|-----------|
-| `draft` | Rascunho (status padrão na criação) |
-| `published` | Publicado |
-| `archived` | Arquivado |
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `ID` | `uuid` | Chave primária |
+| `Name` | `string` | Nome |
+| `Email` | `string` | Login (unique) |
+| `Password` | `string` | Bcrypt hash |
+| `IsActive` | `bool` | Soft delete |
+
+### Tag
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `ID` | `uuid` | Chave primária |
+| `Name` | `string` | Unique |
+
+### Comment
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `ID` | `uuid` | Chave primária |
+| `Content` | `text` | |
+| `PostID` | `uuid` | FK → blog_posts |
+| `UserID` | `uuid` | Autor |
+| `IsActive` | `bool` | Soft delete |
 
 ---
 
 ## Regras de Negócio
 
 ### Criação
-- O título é obrigatório
-- O status inicial é sempre `draft`
+- Título obrigatório
+- Status inicial: `draft`
+- Slug gerado automaticamente (título + timestamp)
 
 ### Publicação
-- O post deve existir e estar ativo
-- O post não pode já estar publicado
-- O conteúdo deve ter no mínimo 10 caracteres
+- Post deve existir e estar ativo
+- Não pode já estar publicado
+- Conteúdo ≥ 10 caracteres
 
 ### Edição
-- O post deve existir e estar ativo
-- Não é possível editar posts inativos/deletados
+- Post deve existir e estar ativo
+- Owner check (UserID do token)
 
 ### Exclusão
-- A exclusão é lógica (soft delete)
-- O campo `IsActive` é definido como `false`
-- O GORM preenche automaticamente `DeletedAt`
+- Soft delete: `IsActive = false`
+- Owner check
 
----
-
-## Documentação Swagger
-
-A documentação Swagger é gerada automaticamente e está disponível em:
-
-```
-http://localhost:{API_PORT}/swagger/index.html
-```
-
-Para regenerar a documentação após alterações nos comentários `godoc`:
-
-```bash
-swag init -g cmd/main.go
-```
+### Tags
+- Find-or-create por nome
+- Many2many via tabela `post_tags`
 
 ---
 
 ## Licença
 
-Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
+MIT

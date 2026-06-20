@@ -14,10 +14,12 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	// IMPORTANTE: Importa os documentos que serão gerados pelo comando 'swag init'
 	_ "Gblog/cmd/docs"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
@@ -91,6 +93,13 @@ func main() {
 	getPostBySlugUseCase := blogPost.NewGetPostBySlugUseCase(repo)
 
 	r := gin.Default()
+	r.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"*"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
+		AllowCredentials: false,
+		MaxAge:           12 * time.Hour,
+	}))
 
 	// ROTA DO SWAGGER: Configura a rota onde a interface gráfica do Swagger vai rodar
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
@@ -129,11 +138,11 @@ func main() {
 
 	api := r.Group("/api/v1")
 	{
-		api.POST("/auth/token", auth.Login)                   // Gerar token
+		api.POST("/auth/token", auth.Login) // Gerar token
 
-		api.GET("/posts", postHandler.GetPosts)               // Listar posts
-		api.GET("/posts/slug/:slug", postHandler.GetPostBySlug)    // Ver post por slug
-		api.GET("/posts/:id/comments", commentHandler.List)   // Listar comentários
+		api.GET("/posts", postHandler.GetPosts)                 // Listar posts
+		api.GET("/posts/slug/:slug", postHandler.GetPostBySlug) // Ver post por slug
+		api.GET("/posts/:id/comments", commentHandler.List)     // Listar comentários
 
 		protected := api.Group("")
 		protected.Use(infra.AuthMiddleware())
@@ -149,9 +158,9 @@ func main() {
 			protected.DELETE("/users/:id", userHandler.Delete)           // Desativar usuário
 		}
 
-		api.GET("/tags", tagHandler.List)                     // Listar tags
-		api.GET("/users/:id", userHandler.Get)                 // Ver usuário
-		api.POST("/users", userHandler.Create)                 // Criar usuário
+		api.GET("/tags", tagHandler.List)      // Listar tags
+		api.GET("/users/:id", userHandler.Get) // Ver usuário
+		api.POST("/users", userHandler.Create) // Criar usuário
 	}
 
 	r.Run(":" + os.Getenv("API_PORT"))
