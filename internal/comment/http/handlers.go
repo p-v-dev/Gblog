@@ -122,8 +122,6 @@ func (h *CommentHandler) Delete(c *gin.Context) {
 }
 
 func currentUserID(c *gin.Context) string {
-	if id, ok := c.Get("user_id"); ok {
-		return id.(string)
-	}
-	return c.GetHeader("X-User-ID")
+	id, _ := c.Get("user_id")
+	return id.(string)
 }

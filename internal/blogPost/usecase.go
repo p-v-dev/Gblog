@@ -16,29 +16,14 @@ import (
 
 var slugRe = regexp.MustCompile(`[^a-z0-9]+`)
 
-func (uc *createPostUseCase) resolveTags(ctx context.Context, names []string) ([]tag.Tag, error) {
-	// ponytail: linear scan, fine for <100 tags per post
+// ponytail: linear scan, fine for <100 tags per post
+func resolveTags(ctx context.Context, repo tag.Repository, names []string) ([]tag.Tag, error) {
 	var tags []tag.Tag
 	for _, name := range names {
-		t, err := uc.tagRepo.FindByName(ctx, name)
+		t, err := repo.FindByName(ctx, name)
 		if err != nil {
 			t = &tag.Tag{Name: name}
-			if err := uc.tagRepo.Create(ctx, t); err != nil {
-				return nil, err
-			}
-		}
-		tags = append(tags, *t)
-	}
-	return tags, nil
-}
-
-func (uc *updatePostUseCase) resolveTags(ctx context.Context, names []string) ([]tag.Tag, error) {
-	var tags []tag.Tag
-	for _, name := range names {
-		t, err := uc.tagRepo.FindByName(ctx, name)
-		if err != nil {
-			t = &tag.Tag{Name: name}
-			if err := uc.tagRepo.Create(ctx, t); err != nil {
+			if err := repo.Create(ctx, t); err != nil {
 				return nil, err
 			}
 		}
@@ -92,7 +77,7 @@ func (uc *createPostUseCase) Execute(ctx context.Context, input CreatePostInputD
 		return nil, errors.New("usuário informado não existe")
 	}
 
-	tags, _ := uc.resolveTags(ctx, input.Tags)
+	tags, _ := resolveTags(ctx, uc.tagRepo, input.Tags)
 
 	postEntity := &BlogPost{
 		Title:   input.Title,
@@ -179,7 +164,7 @@ func (uc *updatePostUseCase) Execute(ctx context.Context, id, userID string, inp
 	post.Content = input.Content
 	post.Slug = slugify(input.Title)
 
-	tags, _ := uc.resolveTags(ctx, input.Tags)
+	tags, _ := resolveTags(ctx, uc.tagRepo, input.Tags)
 	if input.Tags != nil {
 		post.Tags = tags
 	}

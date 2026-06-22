@@ -45,7 +45,7 @@ func (r *blogPostRepositoryORM) Create(ctx context.Context, post *BlogPost) erro
 func (r *blogPostRepositoryORM) GetBySlug(ctx context.Context, slug string) (*BlogPost, error) {
 	var post BlogPost
 	// Adicionamos a condição is_active = true
-	err := r.db.WithContext(ctx).Where("slug = ? AND is_active = ?", slug, true).First(&post).Error
+	err := r.db.WithContext(ctx).Preload("Tags").Where("slug = ? AND is_active = ?", slug, true).First(&post).Error
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +54,7 @@ func (r *blogPostRepositoryORM) GetBySlug(ctx context.Context, slug string) (*Bl
 func (r *blogPostRepositoryORM) FindByID(ctx context.Context, id string) (*BlogPost, error) {
 	var post BlogPost
 	// Adicionamos a condição is_active = true
-	err := r.db.WithContext(ctx).Where("id = ? AND is_active = ?", id, true).First(&post).Error
+	err := r.db.WithContext(ctx).Preload("Tags").Where("id = ? AND is_active = ?", id, true).First(&post).Error
 	if err != nil {
 		return nil, err
 	}
@@ -66,6 +66,7 @@ func (r *blogPostRepositoryORM) FetchAll(ctx context.Context, limit, offset int)
 	var posts []BlogPost
 	// Adicionamos a condição is_active = true
 	err := r.db.WithContext(ctx).
+		Preload("Tags").
 		Where("is_active = ?", true).
 		Limit(limit).
 		Offset(offset).
@@ -80,5 +81,10 @@ func (r *blogPostRepositoryORM) FetchAll(ctx context.Context, limit, offset int)
 
 // Update salva as alterações de um post existente
 func (r *blogPostRepositoryORM) Update(ctx context.Context, post *BlogPost) error {
-	return r.db.WithContext(ctx).Save(post).Error
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Save(post).Error; err != nil {
+			return err
+		}
+		return tx.Model(post).Association("Tags").Replace(post.Tags)
+	})
 }

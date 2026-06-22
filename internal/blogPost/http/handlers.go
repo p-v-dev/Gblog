@@ -100,10 +100,8 @@ func (h *BlogPostHandler) Publish(c *gin.Context) {
 // @Failure      400   {object}  map[string]string            "ID ou JSON inválido"
 // @Router       /posts/{id} [put]
 func currentUserID(c *gin.Context) string {
-	if id, ok := c.Get("user_id"); ok {
-		return id.(string)
-	}
-	return c.GetHeader("X-User-ID")
+	id, _ := c.Get("user_id")
+	return id.(string)
 }
 
 func (h *BlogPostHandler) Update(c *gin.Context) {
