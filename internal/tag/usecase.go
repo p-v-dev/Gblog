@@ -21,6 +21,9 @@ func (uc *createTagUseCase) Execute(ctx context.Context, input CreateTagInput) (
 	if input.Name == "" {
 		return nil, errors.New("o nome da tag é obrigatório")
 	}
+	if len(input.Name) > 20 {
+		return nil, errors.New("o nome da tag deve ter no máximo 20 caracteres")
+	}
 
 	existing, err := uc.repo.FindByName(ctx, input.Name)
 	if err == nil {

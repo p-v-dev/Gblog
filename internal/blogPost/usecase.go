@@ -20,6 +20,9 @@ var slugRe = regexp.MustCompile(`[^a-z0-9]+`)
 func resolveTags(ctx context.Context, repo tag.Repository, names []string) ([]tag.Tag, error) {
 	var tags []tag.Tag
 	for _, name := range names {
+		if len(name) > 20 {
+			return nil, errors.New("o nome da tag deve ter no máximo 20 caracteres")
+		}
 		t, err := repo.FindByName(ctx, name)
 		if err != nil {
 			t = &tag.Tag{Name: name}
@@ -68,6 +71,15 @@ func (uc *createPostUseCase) Execute(ctx context.Context, input CreatePostInputD
 
 	if input.Title == "" {
 		return nil, errors.New("o título do post é obrigatório")
+	}
+	if len(input.Title) > 60 {
+		return nil, errors.New("o título deve ter no máximo 60 caracteres")
+	}
+	if len(input.Content) > 9000 {
+		return nil, errors.New("o conteúdo deve ter no máximo 9000 caracteres")
+	}
+	if len(input.Tags) > 5 {
+		return nil, errors.New("máximo de 5 tags por post")
 	}
 	if input.UserID == "" {
 		return nil, errors.New("o ID do usuário é obrigatório")
@@ -160,9 +172,19 @@ func (uc *updatePostUseCase) Execute(ctx context.Context, id, userID string, inp
 		return errors.New("você não tem permissão para editar este post")
 	}
 
+	if len(input.Title) > 60 {
+		return errors.New("o título deve ter no máximo 60 caracteres")
+	}
+	if len(input.Content) > 9000 {
+		return errors.New("o conteúdo deve ter no máximo 9000 caracteres")
+	}
+	if input.Tags != nil && len(input.Tags) > 5 {
+		return errors.New("máximo de 5 tags por post")
+	}
+
 	post.Title = input.Title
 	post.Content = input.Content
-	post.Slug = slugify(input.Title)
+	post.Slug = fmt.Sprintf("%s-%d", slugify(input.Title), time.Now().UnixMilli())
 
 	tags, _ := resolveTags(ctx, uc.tagRepo, input.Tags)
 	if input.Tags != nil {

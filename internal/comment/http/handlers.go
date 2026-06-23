@@ -2,6 +2,7 @@ package http
 
 import (
 	"Gblog/internal/comment"
+	"Gblog/internal/infra"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -38,7 +39,7 @@ func (h *CommentHandler) Create(c *gin.Context) {
 		return
 	}
 
-	userID := currentUserID(c)
+	userID := infra.CurrentUserID(c)
 	if userID == "" {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "usuário não autenticado"})
 		return
@@ -107,7 +108,7 @@ func (h *CommentHandler) Delete(c *gin.Context) {
 		return
 	}
 
-	userID := currentUserID(c)
+	userID := infra.CurrentUserID(c)
 	if userID == "" {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "usuário não autenticado"})
 		return
@@ -119,9 +120,4 @@ func (h *CommentHandler) Delete(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Comentário removido com sucesso"})
-}
-
-func currentUserID(c *gin.Context) string {
-	id, _ := c.Get("user_id")
-	return id.(string)
 }

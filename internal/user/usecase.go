@@ -3,6 +3,7 @@ package user
 import (
 	"context"
 	"errors"
+	"net/mail"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -105,6 +106,9 @@ func (uc *updateUserUseCase) Execute(ctx context.Context, id string, input Updat
 		user.Name = input.Name
 	}
 	if input.Email != "" {
+		if _, err := mail.ParseAddress(input.Email); err != nil {
+			return nil, errors.New("email inválido")
+		}
 		user.Email = input.Email
 	}
 
@@ -146,8 +150,14 @@ func (uc *createUserUseCase) Execute(ctx context.Context, input CreateUserInput)
 	if input.Email == "" {
 		return nil, errors.New("o email é obrigatório")
 	}
+	if _, err := mail.ParseAddress(input.Email); err != nil {
+		return nil, errors.New("email inválido")
+	}
 	if input.Password == "" {
 		return nil, errors.New("a senha é obrigatória")
+	}
+	if len(input.Password) < 8 {
+		return nil, errors.New("a senha deve ter no mínimo 8 caracteres")
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)

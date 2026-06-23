@@ -2,6 +2,7 @@ package http
 
 import (
 	"Gblog/internal/blogPost"
+	"Gblog/internal/infra"
 	"net/http"
 	"strconv"
 
@@ -99,11 +100,6 @@ func (h *BlogPostHandler) Publish(c *gin.Context) {
 // @Success      200   {object}  map[string]string            "Post atualizado com sucesso"
 // @Failure      400   {object}  map[string]string            "ID ou JSON inválido"
 // @Router       /posts/{id} [put]
-func currentUserID(c *gin.Context) string {
-	id, _ := c.Get("user_id")
-	return id.(string)
-}
-
 func (h *BlogPostHandler) Update(c *gin.Context) {
 	id := c.Param("id")
 	if id == "" {
@@ -111,7 +107,7 @@ func (h *BlogPostHandler) Update(c *gin.Context) {
 		return
 	}
 
-	userID := currentUserID(c)
+	userID := infra.CurrentUserID(c)
 	if userID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "usuário não autenticado"})
 		return
@@ -148,7 +144,7 @@ func (h *BlogPostHandler) Delete(c *gin.Context) {
 		return
 	}
 
-	userID := currentUserID(c)
+	userID := infra.CurrentUserID(c)
 	if userID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "usuário não autenticado"})
 		return

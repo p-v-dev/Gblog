@@ -11,7 +11,7 @@ import (
 	"Gblog/internal/user"
 	userHttp "Gblog/internal/user/http"
 	"context"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -82,7 +82,8 @@ func main() {
 	infra.LoadEnv()
 	db, err := infra.ConnectDB()
 	if err != nil {
-		log.Fatalf("Erro no banco: %v", err)
+		slog.Error("falha ao conectar no banco", "err", err)
+		os.Exit(1)
 	}
 	repo := blogPost.NewBlogPostRepository(db)
 	userRepo := user.NewUserRepository(db)
@@ -95,8 +96,13 @@ func main() {
 	getPostBySlugUseCase := blogPost.NewGetPostBySlugUseCase(repo)
 
 	r := gin.Default()
+
+	corsOrigins := os.Getenv("CORS_ORIGINS")
+	if corsOrigins == "" {
+		corsOrigins = "*"
+	}
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"*"},
+		AllowOrigins:     []string{corsOrigins},
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
 		AllowCredentials: false,
@@ -127,12 +133,14 @@ func main() {
 	userHandler := userHttp.NewUserHandler(createUserUseCase, getUserUseCase, updateUserUseCase, deleteUserUseCase)
 
 	if os.Getenv("JWT_SECRET") == "" {
-		log.Fatal("JWT_SECRET não configurado")
+		slog.Error("JWT_SECRET não configurado")
+		os.Exit(1)
 	}
 
 	apiPort := os.Getenv("API_PORT")
 	if apiPort == "" {
-		log.Fatal("API_PORT não configurada")
+		slog.Error("API_PORT não configurada")
+		os.Exit(1)
 	}
 
 	auth := &authHandler{loginUseCase: loginUseCase}
@@ -148,6 +156,7 @@ func main() {
 	commentHandler := commentHttp.NewCommentHandler(createCommentUseCase, listCommentsUseCase, deleteCommentUseCase)
 
 	api := r.Group("/api/v1")
+	api.Use(infra.RateLimit(10))
 	{
 		api.POST("/auth/token", auth.Login) // Gerar token
 
@@ -176,7 +185,8 @@ func main() {
 
 	sqlDB, err := db.DB()
 	if err != nil {
-		log.Fatalf("Erro ao obter conexão SQL: %v", err)
+		slog.Error("erro ao obter conexão SQL", "err", err)
+		os.Exit(1)
 	}
 
 	srv := &http.Server{
@@ -189,20 +199,21 @@ func main() {
 
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Erro ao iniciar servidor: %v", err)
+			slog.Error("erro ao iniciar servidor", "err", err)
+			os.Exit(1)
 		}
 	}()
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGTERM, syscall.SIGINT)
 	<-quit
-	log.Println("Desligando servidor...")
+	slog.Info("Desligando servidor...")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	if err := srv.Shutdown(ctx); err != nil {
-		log.Printf("Erro ao desligar servidor: %v", err)
+		slog.Error("erro ao desligar servidor", "err", err)
 	}
 
 	sqlDB.Close()
