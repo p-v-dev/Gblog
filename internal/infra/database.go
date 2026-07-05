@@ -57,9 +57,12 @@ func ConnectDB() (*gorm.DB, error) {
 	sqlDB.SetMaxIdleConns(10)
 	sqlDB.SetConnMaxLifetime(5 * time.Minute)
 
-	err = db.AutoMigrate(&blogPost.BlogPost{}, &user.User{}, &tag.Tag{}, &comment.Comment{})
-	if err != nil {
-		return nil, err
+	// ponytail: production schema changes should be explicit SQL migrations
+	if os.Getenv("ENV") != "production" {
+		err = db.AutoMigrate(&blogPost.BlogPost{}, &user.User{}, &tag.Tag{}, &comment.Comment{})
+		if err != nil {
+			return nil, err
+		}
 	}
 	return db, nil
 }

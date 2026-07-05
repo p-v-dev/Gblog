@@ -89,7 +89,10 @@ func (uc *createPostUseCase) Execute(ctx context.Context, input CreatePostInputD
 		return nil, errors.New("usuário informado não existe")
 	}
 
-	tags, _ := resolveTags(ctx, uc.tagRepo, input.Tags)
+	tags, err := resolveTags(ctx, uc.tagRepo, input.Tags)
+	if err != nil {
+		return nil, err
+	}
 
 	postEntity := &BlogPost{
 		Title:   input.Title,
@@ -186,7 +189,10 @@ func (uc *updatePostUseCase) Execute(ctx context.Context, id, userID string, inp
 	post.Content = input.Content
 	post.Slug = fmt.Sprintf("%s-%d", slugify(input.Title), time.Now().UnixMilli())
 
-	tags, _ := resolveTags(ctx, uc.tagRepo, input.Tags)
+	tags, err := resolveTags(ctx, uc.tagRepo, input.Tags)
+	if err != nil {
+		return err
+	}
 	if input.Tags != nil {
 		post.Tags = tags
 	}
